@@ -1,0 +1,27 @@
+---
+
+stages:
+
+  - dev
+
+  - staging
+
+  - production
+
+
+terraform-prod:
+
+  stage: production
+
+  variables:
+
+    ENVIRONMENT: prod
+
+  trigger:
+
+    include:
+
+      - local: terraform.gitlab-ci.yml
+      - local: terraform_linux.gitlab-ci.yml
+
+    strategy: depend

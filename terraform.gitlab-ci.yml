@@ -1,0 +1,80 @@
+---
+.terraform-ver-init: &terraform-ver-init
+  - terraform version
+  # Provides git the ability to access other private projects for use as remote Terraform modules
+  - terraform init
+
+stages:
+  - init
+  - validate
+  - plan
+  - apply
+
+init:
+  stage: init
+  tags: [Gitlab-Runner-Flowringapp-Prod]
+  script:
+    - *terraform-ver-init
+
+validate:
+  stage: validate
+  tags: [Gitlab-Runner-Flowringapp-Prod]
+  before_script:
+    - *terraform-ver-init
+  dependencies:
+    - init
+  script:
+    - terraform validate
+  allow_failure: false
+
+plan:
+  stage: plan
+  tags: [Gitlab-Runner-Flowringapp-Prod]
+  before_script:
+    - *terraform-ver-init
+  dependencies:
+    - init
+    - validate
+  script:
+    - terraform plan -out "terraform.tfplan"
+    - terraform show --json "terraform.tfplan"
+  artifacts:
+    name: plan
+    paths:
+      - terraform.tfplan
+  allow_failure: false
+
+apply:
+  stage: apply
+  tags: [Gitlab-Runner-Flowringapp-Prod]
+  before_script:
+    - *terraform-ver-init
+    - terraform plan -out "terraform.tfplan"
+  environment:
+    name: ${ENVIRONMENT}
+    on_stop: destroy
+  dependencies:
+    - init
+    - plan
+  script:
+    - terraform apply -auto-approve -input=false "terraform.tfplan" 
+  when: manual
+  only:
+    - master
+
+# Job: Destroy | Stage: Apply
+# Purpose: Stop and destroy the resources configured by Terraform
+destroy:
+  stage: apply
+  tags: [Gitlab-Runner-Flowringapp-Prod]
+  before_script:
+    - *terraform-ver-init
+  script:
+    - terraform destroy -auto-approve
+  when: manual
+  only:
+    - master
+  environment:
+    name: ${ENVIRONMENT}
+    action: stop
+  retry: 1
